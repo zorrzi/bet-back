@@ -19,7 +19,7 @@ from typing import Any
 
 from src.config.settings import Settings
 from src.models.odds import MarketCategory
-from src.providers.base import EventOdds, OddsQuote
+from src.providers.base import EventOdds, OddsQuote, ScoreData
 from src.providers.http import get_json
 
 logger = logging.getLogger(__name__)
@@ -58,6 +58,45 @@ class TheOddsApiProvider:
             },
         )
         return events
+
+    def fetch_scores(self, sport_key: str, days_from: int) -> list[ScoreData]:
+        """Scores for events that started up to `days_from` days ago (costs
+        2 credits per call on The Odds API)."""
+        payload = get_json(
+            f"{self._base_url}/sports/{sport_key}/scores",
+            params={"apiKey": self._api_key, "daysFrom": days_from},
+            timeout=self._timeout,
+        )
+        scores = [score for raw in payload if (score := self._parse_score(raw)) is not None]
+        logger.info(
+            "the_odds_api.scores_fetched",
+            extra={
+                "sport_key": sport_key,
+                "events": len(scores),
+                "completed": sum(1 for s in scores if s.completed),
+            },
+        )
+        return scores
+
+    def _parse_score(self, raw: dict[str, Any]) -> ScoreData | None:
+        try:
+            home_team = raw["home_team"]
+            away_team = raw["away_team"]
+            by_team: dict[str, int] = {}
+            for entry in raw.get("scores") or []:
+                by_team[entry["name"]] = int(entry["score"])
+            return ScoreData(
+                event_provider_id=str(raw["id"]),
+                home_team_name=home_team,
+                away_team_name=away_team,
+                kickoff_utc=datetime.fromisoformat(raw["commence_time"]).astimezone(UTC),
+                completed=bool(raw.get("completed")),
+                home_score=by_team.get(home_team),
+                away_score=by_team.get(away_team),
+            )
+        except (KeyError, TypeError, ValueError):
+            logger.warning("the_odds_api.score_parse_failed", extra={"raw": str(raw)[:200]})
+            return None
 
     def _parse_event(self, raw: dict[str, Any]) -> EventOdds | None:
         try:

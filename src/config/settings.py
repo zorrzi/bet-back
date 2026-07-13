@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     odds_sport_key: str = "soccer_brazil_campeonato"  # The Odds API sport key
     odds_regions: str = "eu"  # region(s) queried on The Odds API
     odds_markets: str = "h2h,totals"  # market keys queried on The Odds API
+    # API-Football's free plan cannot see current seasons (2022-2024 only),
+    # so upcoming matches are bootstrapped from The Odds API events and
+    # results come from its /scores endpoint. Disable if a fixtures provider
+    # with current-season access becomes the primary source (see ADR-0004).
+    odds_autocreate_matches: bool = True
+    scores_days_from: int = 3  # lookback window for the scores endpoint
 
     # --- domain reference data ---
     # comma-separated provider ids treated as sharp books (de-vig/CLV reference)
@@ -52,11 +58,14 @@ class Settings(BaseSettings):
     # --- scheduler ---
     scheduler_enabled: bool = False
     fixtures_poll_minutes: int = 360
-    # The Odds API free tier = 500 credits/month; each poll with 2 markets
-    # x 1 region costs 2 credits. 240 min => ~6 polls/day ~= 360 credits/month.
-    odds_poll_minutes: int = 240
+    # The Odds API free tier = 500 credits/month. Budget:
+    #   odds: 2 credits/poll (2 markets x 1 region), 360 min => 4/day => ~240/mo
+    #   scores: 2 credits/poll (daysFrom set), 720 min => 2/day => ~120/mo
+    # total ~360/mo, leaving headroom for manual triggers.
+    odds_poll_minutes: int = 360
+    scores_poll_minutes: int = 720
     closing_poll_minutes: int = 5
-    settle_poll_minutes: int = 30
+    settle_poll_minutes: int = 30  # bets settlement (Phase 3+)
 
     # --- domain parameters (used from Phase 2/3 on; config from day one) ---
     min_edge: float = 0.03

@@ -14,13 +14,22 @@ from src.database.database import get_db
 from src.providers.api_football import ApiFootballProvider
 from src.providers.http import ProviderError
 from src.providers.the_odds_api import TheOddsApiProvider
-from src.schemas.jobs import ClosingMarkOut, FixtureIngestionOut, OddsIngestionOut
+from src.schemas.jobs import (
+    ClosingMarkOut,
+    FixtureIngestionOut,
+    OddsIngestionOut,
+    ResultsIngestionOut,
+)
 from src.services.closing_service import ClosingService
 from src.services.fixture_ingestion_service import (
     FixtureIngestionResult,
     FixtureIngestionService,
 )
 from src.services.odds_ingestion_service import OddsIngestionResult, OddsIngestionService
+from src.services.results_ingestion_service import (
+    ResultsIngestionResult,
+    ResultsIngestionService,
+)
 
 router = APIRouter(prefix="/jobs", tags=["jobs"], dependencies=[Depends(require_api_key)])
 
@@ -47,7 +56,11 @@ def ingest_odds(
     settings: Settings = Depends(get_settings),
 ) -> OddsIngestionResult:
     service = OddsIngestionService(
-        db, TheOddsApiProvider(settings), settings.sharp_bookmaker_set
+        db,
+        TheOddsApiProvider(settings),
+        settings.sharp_bookmaker_set,
+        autocreate_matches=settings.odds_autocreate_matches,
+        season=settings.ingest_season,
     )
     try:
         return service.ingest_current_odds(
@@ -55,6 +68,18 @@ def ingest_odds(
         )
     except _UPSTREAM_ERRORS as exc:
         raise HTTPException(status_code=502, detail="Odds provider error.") from exc
+
+
+@router.post("/ingest/scores", response_model=ResultsIngestionOut)
+def ingest_scores(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> ResultsIngestionResult:
+    service = ResultsIngestionService(db, TheOddsApiProvider(settings))
+    try:
+        return service.ingest_scores(settings.odds_sport_key, settings.scores_days_from)
+    except _UPSTREAM_ERRORS as exc:
+        raise HTTPException(status_code=502, detail="Scores provider error.") from exc
 
 
 @router.post("/mark-closing", response_model=ClosingMarkOut)

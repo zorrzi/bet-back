@@ -18,6 +18,7 @@ from src.providers.the_odds_api import TheOddsApiProvider
 from src.services.closing_service import ClosingService
 from src.services.fixture_ingestion_service import FixtureIngestionService
 from src.services.odds_ingestion_service import OddsIngestionService
+from src.services.results_ingestion_service import ResultsIngestionService
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +47,23 @@ def _ingest_odds(settings: Settings) -> None:
     _run_job(
         "ingest_odds",
         lambda session: OddsIngestionService(
-            session, TheOddsApiProvider(settings), settings.sharp_bookmaker_set
+            session,
+            TheOddsApiProvider(settings),
+            settings.sharp_bookmaker_set,
+            autocreate_matches=settings.odds_autocreate_matches,
+            season=settings.ingest_season,
         ).ingest_current_odds(
             settings.odds_sport_key, settings.odds_regions, settings.odds_markets
         ),
+    )
+
+
+def _ingest_scores(settings: Settings) -> None:
+    _run_job(
+        "ingest_scores",
+        lambda session: ResultsIngestionService(
+            session, TheOddsApiProvider(settings)
+        ).ingest_scores(settings.odds_sport_key, settings.scores_days_from),
     )
 
 
@@ -64,19 +78,30 @@ def _mark_closing(settings: Settings) -> None:
 
 def build_scheduler(settings: Settings) -> BackgroundScheduler:
     scheduler = BackgroundScheduler(timezone="UTC")
-    scheduler.add_job(
-        _ingest_fixtures,
-        "interval",
-        minutes=settings.fixtures_poll_minutes,
-        args=[settings],
-        id="ingest_fixtures",
-    )
+    if not settings.odds_autocreate_matches:
+        # with autocreate on, The Odds API is the fixture source and polling
+        # API-Football (blind to current seasons on the free plan) would just
+        # fail every run (ADR-0004)
+        scheduler.add_job(
+            _ingest_fixtures,
+            "interval",
+            minutes=settings.fixtures_poll_minutes,
+            args=[settings],
+            id="ingest_fixtures",
+        )
     scheduler.add_job(
         _ingest_odds,
         "interval",
         minutes=settings.odds_poll_minutes,
         args=[settings],
         id="ingest_odds",
+    )
+    scheduler.add_job(
+        _ingest_scores,
+        "interval",
+        minutes=settings.scores_poll_minutes,
+        args=[settings],
+        id="ingest_scores",
     )
     scheduler.add_job(
         _mark_closing,

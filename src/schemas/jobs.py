@@ -20,8 +20,17 @@ class OddsIngestionOut(BaseModel):
     events_seen: int
     events_matched: int
     events_unmatched: int
+    matches_autocreated: int
     snapshots_inserted: int
     captured_at: datetime
+
+
+class ResultsIngestionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    events_seen: int
+    results_applied: int
+    events_unmatched: int
 
 
 class ClosingMarkOut(BaseModel):

@@ -17,9 +17,15 @@ de aprovação entre fases.
 - [x] Ambiente local completo: Postgres via docker-compose, migrations
       aplicadas, API + front rodando (decisão do dono: tudo local antes de
       qualquer deploy; Railway/Vercel ficam para depois)
-- [ ] Chaves de API do usuário (API-Football + The Odds API) no `.env`
-- [ ] Primeira captura real de odds com timestamp (critério do ponto de
-      controle da spec §13)
+- [x] Chaves de API do usuário (API-Football + The Odds API) no `.env`
+- [x] Fixtures/resultados da temporada corrente via The Odds API
+      (autocreate + /scores) — plano free da API-Football não vê 2026
+      (ADR-0004)
+- [x] **Primeira captura real de odds com timestamp** (2026-07-13: 13
+      partidas, 979 snapshots, 23 casas incl. Pinnacle) — critério do ponto
+      de controle da spec §13 CUMPRIDO
+- [ ] Ligar o scheduler local (`SCHEDULER_ENABLED=true`) e acumular
+      histórico de odds por alguns dias/rodadas
 - [ ] Deploy no Railway + Vercel — ADIADO por decisão do dono do projeto
 - [ ] (deferido p/ quando necessário) ingestão de players/lineups/stats
       detalhados — schema pronto, ingestão entra antes da Fase 7

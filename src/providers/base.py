@@ -61,9 +61,29 @@ class EventOdds:
     quotes: tuple[OddsQuote, ...] = field(default_factory=tuple)
 
 
+@dataclass(frozen=True)
+class ScoreData:
+    """Final (or in-progress) score of one event, as reported by the odds
+    provider's scores endpoint."""
+
+    event_provider_id: str
+    home_team_name: str
+    away_team_name: str
+    kickoff_utc: datetime
+    completed: bool
+    home_score: int | None
+    away_score: int | None
+
+
 class FixtureProvider(Protocol):
     def fetch_fixtures(self, league_provider_id: str, season: str) -> list[FixtureData]:
         """All fixtures (past and future) for one league season."""
+        ...
+
+
+class ScoresProvider(Protocol):
+    def fetch_scores(self, sport_key: str, days_from: int) -> list[ScoreData]:
+        """Scores for recent/live events of one sport."""
         ...
 
 

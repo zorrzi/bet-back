@@ -121,6 +121,43 @@ def test_malformed_price_skips_event_not_run(
     assert events == []  # bad event dropped; fetch itself survives
 
 
+def test_parses_scores_payload(
+    provider: TheOddsApiProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload = [
+        {
+            "id": "abc123",
+            "commence_time": "2026-07-20T16:00:00Z",
+            "completed": True,
+            "home_team": "Flamengo",
+            "away_team": "Palmeiras",
+            "scores": [
+                {"name": "Flamengo", "score": "2"},
+                {"name": "Palmeiras", "score": "1"},
+            ],
+        },
+        {
+            "id": "def456",
+            "commence_time": "2026-07-21T16:00:00Z",
+            "completed": False,
+            "home_team": "Cruzeiro",
+            "away_team": "Bahia",
+            "scores": None,  # not started yet
+        },
+    ]
+    monkeypatch.setattr(the_odds_api, "get_json", lambda *a, **k: payload)
+    scores = provider.fetch_scores("soccer_brazil_campeonato", 3)
+
+    assert len(scores) == 2
+    done = scores[0]
+    assert done.completed is True
+    assert (done.home_score, done.away_score) == (2, 1)
+    assert done.kickoff_utc == datetime(2026, 7, 20, 16, 0, tzinfo=UTC)
+    pending = scores[1]
+    assert pending.completed is False
+    assert pending.home_score is None
+
+
 def test_unknown_outcome_names_are_skipped(
     provider: TheOddsApiProvider, monkeypatch: pytest.MonkeyPatch
 ) -> None:

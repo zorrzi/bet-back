@@ -78,7 +78,9 @@ def test_event_matches_despite_accents_and_case(session: Session) -> None:
     assert result.snapshots_inserted == 1
 
 
-def test_unmatched_event_is_skipped_and_counted(session: Session) -> None:
+def test_unmatched_event_is_skipped_and_counted_without_autocreate(
+    session: Session,
+) -> None:
     seed_match(session)
     provider = FakeOddsProvider(
         [event_odds((h2h_quote("HOME", "2.10"),), home="Unknown FC", away="Mystery United")]
@@ -90,3 +92,33 @@ def test_unmatched_event_is_skipped_and_counted(session: Session) -> None:
     assert result.events_unmatched == 1
     assert result.snapshots_inserted == 0
     assert session.scalar(select(func.count(OddsSnapshot.id))) == 0
+
+
+def test_autocreate_builds_match_from_odds_event(session: Session) -> None:
+    """ADR-0004: with no fixtures provider for the current season, the odds
+    event itself becomes the match."""
+    from src.models.competition import League, Team
+    from src.models.match import Match
+
+    provider = FakeOddsProvider(
+        [event_odds((h2h_quote("HOME", "2.10"), h2h_quote("AWAY", "3.40")))]
+    )
+    service = OddsIngestionService(session, provider, autocreate_matches=True, season="2026")
+    result = service.ingest_current_odds("soccer_brazil_campeonato", "eu", "h2h")
+
+    assert result.matches_autocreated == 1
+    assert result.snapshots_inserted == 2
+    match = session.scalar(select(Match))
+    assert match is not None
+    assert match.provider_id == "toa:abc123"
+    league = session.scalar(select(League))
+    assert league is not None
+    assert league.provider_id == "toa:soccer_brazil_campeonato"
+    assert league.season == "2026"
+    assert session.scalar(select(func.count(Team.id))) == 2
+
+    # re-run: same event resolves by provider_id, nothing new is created
+    second = service.ingest_current_odds("soccer_brazil_campeonato", "eu", "h2h")
+    assert second.matches_autocreated == 0
+    assert session.scalar(select(func.count(Match.id))) == 1
+    assert session.scalar(select(func.count(OddsSnapshot.id))) == 4  # append-only

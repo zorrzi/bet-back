@@ -13,10 +13,13 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
+from src.models.match import Match, MatchStatus
 from src.models.odds import Bookmaker, Market
 from src.providers.base import EventOdds, OddsProvider, OddsQuote
+from src.repositories.competition_repository import CompetitionRepository
 from src.repositories.match_repository import MatchRepository
 from src.repositories.odds_repository import OddsRepository
+from src.utils.text import normalize_team_name
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +31,7 @@ class OddsIngestionResult:
     events_seen: int
     events_matched: int
     events_unmatched: int
+    matches_autocreated: int
     snapshots_inserted: int
     captured_at: datetime
 
@@ -38,11 +42,17 @@ class OddsIngestionService:
         session: Session,
         provider: OddsProvider,
         sharp_bookmakers: frozenset[str] | set[str] = DEFAULT_SHARP_BOOKMAKERS,
+        *,
+        autocreate_matches: bool = False,
+        season: str = "",
     ) -> None:
         self._session = session
         self._provider = provider
         self._sharp_bookmakers = sharp_bookmakers
+        self._autocreate = autocreate_matches
+        self._season = season
         self._matches = MatchRepository(session)
+        self._competitions = CompetitionRepository(session)
         self._odds = OddsRepository(session)
         # per-run reference caches: bookmakers/markets repeat per quote and
         # would otherwise cost one SELECT each
@@ -56,17 +66,21 @@ class OddsIngestionService:
         captured_at = datetime.now(UTC)
         matched = 0
         inserted = 0
+        autocreated = 0
         for event in events:
-            count = self._ingest_event(event, captured_at)
-            if count is None:
+            outcome = self._ingest_event(event, captured_at, sport_key)
+            if outcome is None:
                 continue
+            count, created = outcome
             matched += 1
             inserted += count
+            autocreated += int(created)
         self._session.commit()
         result = OddsIngestionResult(
             events_seen=len(events),
             events_matched=matched,
             events_unmatched=len(events) - matched,
+            matches_autocreated=autocreated,
             snapshots_inserted=inserted,
             captured_at=captured_at,
         )
@@ -77,17 +91,26 @@ class OddsIngestionService:
                 "events_seen": result.events_seen,
                 "events_matched": result.events_matched,
                 "events_unmatched": result.events_unmatched,
+                "matches_autocreated": result.matches_autocreated,
                 "snapshots_inserted": result.snapshots_inserted,
             },
         )
         return result
 
-    def _ingest_event(self, event: EventOdds, captured_at: datetime) -> int | None:
-        """Insert all quotes of one event. Returns rows inserted, or None if
-        the event could not be resolved onto a match."""
-        match = self._matches.find_by_teams_and_kickoff(
-            event.home_team_name, event.away_team_name, event.kickoff_utc
-        )
+    def _ingest_event(
+        self, event: EventOdds, captured_at: datetime, sport_key: str
+    ) -> tuple[int, bool] | None:
+        """Insert all quotes of one event. Returns (rows inserted, match was
+        autocreated), or None if the event could not be resolved onto a match."""
+        created = False
+        match = self._matches.get_by_provider_id(f"toa:{event.event_provider_id}")
+        if match is None:
+            match = self._matches.find_by_teams_and_kickoff(
+                event.home_team_name, event.away_team_name, event.kickoff_utc
+            )
+        if match is None and self._autocreate:
+            match = self._autocreate_match(event, sport_key)
+            created = True
         if match is None:
             logger.warning(
                 "odds_ingestion.event_unmatched",
@@ -112,7 +135,49 @@ class OddsIngestionService:
                 captured_at=captured_at,
             )
             inserted += 1
-        return inserted
+        return inserted, created
+
+    def _autocreate_match(self, event: EventOdds, sport_key: str) -> Match:
+        """Create the match from the odds event itself (ADR-0004): with
+        API-Football's free plan blind to current seasons, The Odds API is
+        the fixture source for upcoming games. 'toa:' prefixes keep its id
+        namespace separate from other providers'."""
+        league = self._competitions.upsert_league(
+            provider_id=f"toa:{sport_key}",
+            season=self._season,
+            name=sport_key,
+            country=None,
+        )
+        home = self._competitions.upsert_team(
+            f"toa:{normalize_team_name(event.home_team_name)}",
+            event.home_team_name,
+            league.id,
+        )
+        away = self._competitions.upsert_team(
+            f"toa:{normalize_team_name(event.away_team_name)}",
+            event.away_team_name,
+            league.id,
+        )
+        outcome = self._matches.upsert(
+            provider_id=f"toa:{event.event_provider_id}",
+            league_id=league.id,
+            home_team_id=home.id,
+            away_team_id=away.id,
+            kickoff_utc=event.kickoff_utc,
+            status=MatchStatus.SCHEDULED,
+            home_goals=None,
+            away_goals=None,
+        )
+        logger.info(
+            "odds_ingestion.match_autocreated",
+            extra={
+                "match_id": outcome.match.id,
+                "home": event.home_team_name,
+                "away": event.away_team_name,
+                "kickoff": event.kickoff_utc.isoformat(),
+            },
+        )
+        return outcome.match
 
     def _get_bookmaker(self, provider_id: str, name: str) -> Bookmaker:
         bookmaker = self._bookmaker_cache.get(provider_id)

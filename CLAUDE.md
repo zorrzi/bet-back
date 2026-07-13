@@ -106,11 +106,16 @@ Tudo precisa estar verde antes de commit (CI roda os quatro + pip-audit).
 
 ## Estado atual (atualizar ao fim de cada fase)
 
-- **Fase 1 (fundação de dados): implementada** — schema §4 completo,
-  ingestão Brasileirão 2026 (liga 71 API-Football;
-  `soccer_brazil_campeonato` The Odds API), jobs ingest/odds/mark-closing,
-  29 testes verdes. Pendente: deploy Railway/Vercel + chaves de API do
-  usuário + primeira captura real.
-- Fases 2–7: ver `docs/ROADMAP.md`.
-- Decisões registradas em `docs/decisions/` (ADRs). Racional do schema em
-  `docs/DATA_MODEL.md`; glossário e fórmulas em `docs/DOMAIN.md`.
+- **Fase 1 (fundação de dados): CONCLUÍDA no ambiente local** — schema §4
+  completo, primeira captura real em 2026-07-13 (13 partidas do Brasileirão,
+  979 snapshots, Pinnacle sharp). Tudo roda local por decisão do dono
+  (Postgres via `docker compose up -d`; deploy adiado).
+- **ADR-0004 (importante):** o plano free da API-Football NÃO acessa
+  temporadas atuais (só 2022–2024). Partidas e resultados da temporada
+  corrente vêm da The Odds API (autocreate de matches a partir de eventos de
+  odds + job `/jobs/ingest/scores`). API-Football fica para histórico
+  2022–2024 (calibração Fase 2).
+- Próximo: ligar scheduler local p/ acumular histórico → Fase 2 (de-vig +
+  Dixon-Coles).
+- Fases 2–7: ver `docs/ROADMAP.md`. Decisões em `docs/decisions/` (ADRs);
+  schema em `docs/DATA_MODEL.md`; glossário/fórmulas em `docs/DOMAIN.md`.
