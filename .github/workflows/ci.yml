@@ -1,0 +1,38 @@
+# CI (spec §11.4): lint, type-check, tests, dependency audit — all must pass.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Type-check (mypy)
+        run: mypy
+
+      - name: Tests (pytest)
+        run: pytest
+        env:
+          ENVIRONMENT: test
+          DATABASE_URL: sqlite:///./test_ci.db
+
+      - name: Dependency audit (pip-audit)
+        run: pip-audit -r requirements.txt

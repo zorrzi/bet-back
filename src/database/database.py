@@ -1,25 +1,45 @@
+"""SQLAlchemy engine, session factory and declarative base.
+
+The engine is created lazily so tests can point DATABASE_URL at an isolated
+database before anything connects.
+"""
+
+from collections.abc import Generator
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from dotenv import load_dotenv
-import os
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-load_dotenv()
+from src.config.settings import get_settings
 
-DATABASE_HOST = os.getenv("DATABASE_HOST", "localhost")
-DATABASE_PORT = os.getenv("DATABASE_PORT", "3306")
-DATABASE_NAME = os.getenv("DATABASE_NAME", "biblioteca")
-DATABASE_USERNAME = os.getenv("DATABASE_USERNAME", "root")
-DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
 
-DATABASE_URL = f"mysql+pymysql://{DATABASE_USERNAME}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
+class Base(DeclarativeBase):
+    pass
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
 
-# Dependency para FastAPI
-def get_db():
-    db = SessionLocal()
+_engine: Engine | None = None
+_session_factory: sessionmaker[Session] | None = None
+
+
+def get_engine() -> Engine:
+    global _engine
+    if _engine is None:
+        _engine = create_engine(get_settings().database_url, pool_pre_ping=True)
+    return _engine
+
+
+def get_session_factory() -> sessionmaker[Session]:
+    global _session_factory
+    if _session_factory is None:
+        _session_factory = sessionmaker(
+            bind=get_engine(), autocommit=False, autoflush=False, expire_on_commit=False
+        )
+    return _session_factory
+
+
+def get_db() -> Generator[Session, None, None]:
+    """FastAPI dependency: one session per request, always closed."""
+    db = get_session_factory()()
     try:
         yield db
     finally:
