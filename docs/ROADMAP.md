@@ -14,10 +14,13 @@ de aprovação entre fases.
 - [x] Providers: API-Football (fixtures/resultados) e The Odds API (odds)
 - [x] Ingestão idempotente de fixtures + snapshots de odds append-only
 - [x] Job mark-closing (closing line por bookmaker/market/selection)
-- [ ] Deploy no Railway (Postgres) — requer conta/credenciais
-- [ ] Chaves de API do usuário (API-Football + The Odds API)
+- [x] Ambiente local completo: Postgres via docker-compose, migrations
+      aplicadas, API + front rodando (decisão do dono: tudo local antes de
+      qualquer deploy; Railway/Vercel ficam para depois)
+- [ ] Chaves de API do usuário (API-Football + The Odds API) no `.env`
 - [ ] Primeira captura real de odds com timestamp (critério do ponto de
       controle da spec §13)
+- [ ] Deploy no Railway + Vercel — ADIADO por decisão do dono do projeto
 - [ ] (deferido p/ quando necessário) ingestão de players/lineups/stats
       detalhados — schema pronto, ingestão entra antes da Fase 7
 

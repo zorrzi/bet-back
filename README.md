@@ -20,24 +20,33 @@ pytest · ruff · mypy (strict). Deploy: Railway. Frontend: [bet-front]
 
 ## Subir localmente
 
-Pré-requisitos: Python 3.12+ e um PostgreSQL acessível (ou use SQLite p/ testes).
+Pré-requisitos: Python 3.12+ e Docker (para o Postgres de desenvolvimento).
 
 ```powershell
 # 1. venv + dependências
 py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 
-# 2. configuração
-Copy-Item .env.example .env
-# edite .env: DATABASE_URL, API_FOOTBALL_KEY, THE_ODDS_API_KEY
+# 2. banco local (Postgres 16 em container, dados persistem no volume)
+docker compose up -d
 
-# 3. migrations
+# 3. configuração
+Copy-Item .env.example .env
+# edite .env: API_FOOTBALL_KEY, THE_ODDS_API_KEY (DATABASE_URL do compose:
+# postgresql+psycopg://betting:betting@localhost:5432/betting)
+
+# 4. migrations
 .\.venv\Scripts\python.exe -m alembic upgrade head
 
-# 4. rodar
+# 5. rodar
 .\.venv\Scripts\python.exe -m uvicorn src.app:app --reload
 # docs interativas: http://localhost:8000/docs
 ```
+
+Para disparar a ingestão manualmente (com as chaves no `.env`): abra
+`http://localhost:8000/docs`, autentique com o `API_KEY` (botão Authorize →
+header `X-API-Key`) e execute `POST /jobs/ingest/fixtures` e depois
+`POST /jobs/ingest/odds`.
 
 ## Variáveis de ambiente
 
