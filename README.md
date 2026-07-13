@@ -1,203 +1,88 @@
-# Backend Template - FastAPI + SQLAlchemy
+# betting-backend
 
-Este é um template de backend desenvolvido com FastAPI e SQLAlchemy, pronto para ser usado como base para projetos que necessitam de autenticação de usuários.
+Backend da plataforma de análise de valor em apostas esportivas (futebol).
 
-## 🚀 Características
+O sistema estima probabilidades próprias por partida e as compara com a
+probabilidade implícita do mercado **após remoção da margem** (de-vig, com a
+Pinnacle como referência sharp). Só existe sinal quando há **EV positivo**
+(`edge = model_prob × odd − 1 > min_edge`). A métrica principal do projeto é
+**CLV (Closing Line Value)** — não o lucro.
 
-- **FastAPI**: Framework web moderno e rápido
-- **SQLAlchemy**: ORM para banco de dados relacional (MySQL)
-- **Alembic**: Gerenciamento de migrações de banco de dados
-- **Bcrypt**: Hash seguro de senhas
-- **JWT**: Autenticação baseada em tokens
-- **SendGrid**: Envio de emails para recuperação de senha
-- **Arquitetura Clean**: Separação de concerns com use cases, repositories e entities
+> ⚠️ Este é um projeto de análise/estudo. Apostas envolvem risco e nenhum
+> resultado é garantido. Edge sustentável é raro; trate lucro como hipótese
+> a ser refutada.
 
-## 📋 Funcionalidades
+## Stack
 
-- ✅ Registro de usuários
-- ✅ Login com JWT
-- ✅ Validação de sessão
-- ✅ Recuperação de senha por email
-- ✅ Reset de senha com token temporário
+FastAPI · SQLAlchemy 2.0 · Alembic · PostgreSQL · Pydantic v2 · APScheduler ·
+pytest · ruff · mypy (strict). Deploy: Railway. Frontend: [bet-front]
+(React + Vite, Vercel).
 
-## 🛠️ Instalação
+## Subir localmente
 
-### 1. Clone o repositório
-```bash
-git clone <url-do-repositorio>
-cd backend-template
-```
+Pré-requisitos: Python 3.12+ e um PostgreSQL acessível (ou use SQLite p/ testes).
 
-### 2. Crie um ambiente virtual
 ```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-```
+# 1. venv + dependências
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 
-### 3. Instale as dependências
-```powershell
-pip install -r requirements.txt
-```
-
-### 4. Configure as variáveis de ambiente
-Copie o arquivo `.env.example` para `.env` e preencha com suas configurações:
-```powershell
+# 2. configuração
 Copy-Item .env.example .env
+# edite .env: DATABASE_URL, API_FOOTBALL_KEY, THE_ODDS_API_KEY
+
+# 3. migrations
+.\.venv\Scripts\python.exe -m alembic upgrade head
+
+# 4. rodar
+.\.venv\Scripts\python.exe -m uvicorn src.app:app --reload
+# docs interativas: http://localhost:8000/docs
 ```
 
-Edite o arquivo `.env` com suas credenciais.
+## Variáveis de ambiente
 
-### 5. Configure o banco de dados
-Certifique-se de que o MySQL está rodando e crie o banco de dados:
-```sql
-CREATE DATABASE backend_template_db;
-```
+Documentadas em [.env.example](.env.example). Principais:
 
-### 6. Execute as migrações do Alembic
+| Variável | Descrição |
+|---|---|
+| `DATABASE_URL` | conexão Postgres (Railway fornece em prod) |
+| `API_KEY` | protege rotas de escrita (`X-API-Key`); obrigatória em prod |
+| `API_FOOTBALL_KEY` | chave da API-Football (fixtures/resultados) |
+| `THE_ODDS_API_KEY` | chave da The Odds API (odds, incl. Pinnacle) |
+| `CORS_ORIGINS` | origens permitidas, separadas por vírgula |
+| `SCHEDULER_ENABLED` | liga os jobs periódicos de ingestão |
+
+Nunca commitar `.env` ou segredos (ver [SECURITY.md](SECURITY.md)).
+
+## Testes e qualidade
+
 ```powershell
-# Criar a primeira migração (inicial)
-alembic revision --autogenerate -m "Initial migration"
-
-# Aplicar as migrações
-alembic upgrade head
+.\.venv\Scripts\python.exe -m pytest          # suíte + cobertura
+.\.venv\Scripts\python.exe -m ruff check .    # lint
+.\.venv\Scripts\python.exe -m mypy            # type-check
 ```
 
-### 7. Execute a aplicação
-```powershell
-uvicorn src.app:app --reload
-```
+CI (GitHub Actions) roda lint, type-check, testes e auditoria de dependências
+em cada push/PR.
 
-A API estará disponível em `http://localhost:8000`
-
-## 📚 Endpoints da API
-
-### Autenticação de Usuários
-
-- **POST** `/user/auth/register` - Registrar novo usuário
-  ```json
-  {
-    "name": "João Silva",
-    "email": "joao@example.com",
-    "password": "senha123"
-  }
-  ```
-
-- **POST** `/user/auth/login` - Fazer login
-  ```json
-  {
-    "email": "joao@example.com",
-    "password": "senha123"
-  }
-  ```
-
-- **POST** `/user/auth/check/token` - Validar token de sessão (requer autenticação)
-
-- **POST** `/user/auth/pwd/recovery/email` - Solicitar email de recuperação de senha
-  ```json
-  {
-    "email": "joao@example.com"
-  }
-  ```
-
-- **POST** `/user/auth/reset/pwd` - Redefinir senha com token
-  ```json
-  {
-    "token": "uuid-do-token",
-    "password": "nova_senha123"
-  }
-  ```
-
-## 🗂️ Estrutura do Projeto
+## Arquitetura em alto nível
 
 ```
-backend-template/
-├── alembic/                    # Configuração e migrações do Alembic
-│   ├── versions/              # Arquivos de migração
-│   ├── env.py                 # Configuração do ambiente Alembic
-│   └── script.py.mako         # Template para migrações
-├── src/
-│   ├── app.py                 # Aplicação principal FastAPI
-│   ├── config/                # Configurações da aplicação
-│   ├── database/              # Configuração do banco de dados
-│   │   └── database.py        # SQLAlchemy setup e get_db()
-│   ├── entities/              # Entidades Pydantic
-│   │   └── user.py           # Entidade User
-│   ├── middlewares/           # Middlewares customizados
-│   │   └── validate_user_auth_token.py
-│   ├── models/                # Modelos SQLAlchemy
-│   │   └── user_model.py     # Modelo User para o banco
-│   ├── repositories/          # Camada de acesso a dados
-│   │   ├── base_repository.py
-│   │   └── user_repository.py
-│   ├── use_cases/             # Casos de uso (lógica de negócio)
-│   │   └── user/
-│   │       └── auth/
-│   │           ├── login/
-│   │           ├── register/
-│   │           ├── reset_pwd/
-│   │           ├── send_pwd_recovery_email/
-│   │           └── check_session_validity/
-│   └── utils/                 # Utilitários
-│       ├── encode_hmac_hash.py
-│       ├── generate_random_pwd.py
-│       └── send_email.py
-├── alembic.ini               # Configuração do Alembic
-├── requirements.txt          # Dependências Python
-└── .env.example             # Exemplo de variáveis de ambiente
+provedores externos ──► services de ingestão ──► PostgreSQL (odds append-only)
+      ▲                                              │
+  APScheduler (jobs)                                 ▼
+                       FastAPI (rotas de leitura + jobs) ──► frontend
 ```
 
-## 🔧 Tecnologias Utilizadas
+Camadas: `routers → services → repositories → models` (+ `schemas`,
+`providers`, `config`). Detalhes em [ARCHITECTURE.md](ARCHITECTURE.md).
 
-- **Python 3.10+**
-- **FastAPI** - Framework web
-- **SQLAlchemy** - ORM
-- **Alembic** - Migrações de banco de dados
-- **PyMySQL** - Driver MySQL
-- **Bcrypt** - Hash de senhas
-- **PyJWT** - JSON Web Tokens
-- **Pydantic** - Validação de dados
-- **SendGrid** - Envio de emails
+## Documentação
 
-## 📝 Configuração do Alembic
-
-Para criar uma nova migração após alterar os modelos:
-```powershell
-alembic revision --autogenerate -m "Descrição da alteração"
-```
-
-Para aplicar as migrações:
-```powershell
-alembic upgrade head
-```
-
-Para reverter a última migração:
-```powershell
-alembic downgrade -1
-```
-
-## 🔐 Segurança
-
-- Senhas são hasheadas com bcrypt
-- JWT para autenticação stateless
-- Tokens de recuperação de senha expiram em 15 minutos
-- Limite de 1 solicitação de recuperação de senha por hora
-
-## 🎯 Próximos Passos
-
-Este template pode ser expandido com:
-- [ ] Refresh tokens
-- [ ] Verificação de email
-- [ ] Rate limiting
-- [ ] Testes automatizados
-- [ ] Docker e docker-compose
-- [ ] CI/CD
-- [ ] Logging estruturado
-- [ ] Métricas e monitoramento
-
-## 📄 Licença
-
-Este projeto é um template livre para uso em projetos da sua empresa.
-
-## 👥 Contribuindo
-
-Sinta-se livre para adaptar este template às necessidades específicas do seu projeto!
+- [CLAUDE.md](CLAUDE.md) — instruções operacionais para o agente
+- [ARCHITECTURE.md](ARCHITECTURE.md) — camadas, fluxo de dados, porquês
+- [docs/DATA_MODEL.md](docs/DATA_MODEL.md) — schema e racional
+- [docs/DOMAIN.md](docs/DOMAIN.md) — glossário: vig, de-vig, EV, Kelly, CLV
+- [docs/ROADMAP.md](docs/ROADMAP.md) — faseamento e progresso
+- [docs/decisions/](docs/decisions/) — ADRs
+- [SECURITY.md](SECURITY.md) · [CONTRIBUTING.md](CONTRIBUTING.md)
