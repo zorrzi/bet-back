@@ -1,4 +1,4 @@
-# ROADMAP.md — faseamento (spec §1)
+﻿# ROADMAP.md — faseamento (spec §1)
 
 Cada fase deve estar funcional e testável antes da próxima. CLV é a métrica
 de aprovação entre fases.
@@ -75,8 +75,10 @@ de aprovação entre fases.
 - [x] **Run real (id=1)**: 737 apostas 2024–2026 → ROI −22,7%, Sharpe −3,0.
       `dixoncoles_v1` NÃO bate a closing line (ADR-0006). Nenhuma aposta
       com este modelo; o feed de sinais atual é inválido até o v2.
-- [ ] `dixoncoles_v2`: calibração/shrinkage p/ mercado
-      (w·modelo + (1−w)·fair), re-validar neste mesmo harness
+- [x] `dixoncoles_v2` (blend): calibrado por log-loss em 2022–2023 —
+      **mercado puro venceu** (w→0 melhora calibração; ROI negativo em
+      todo w; OOS w=0.2: −4,1%). Produção usa w=0.1; sinais vivos =
+      line-shopping vs sharp; CLV do paper trading é o árbitro (ADR-0007)
 - Nota: CLV estrutural = 0 neste corpus (só closing odds); CLV real será
   medido no paper trading com as capturas ao vivo (ADR-0006)
 
@@ -85,10 +87,16 @@ de aprovação entre fases.
 - [ ] Registro pré-jogo automático, settle pós-jogo, CLV por aposta
 - [ ] Centenas de bets antes de qualquer conclusão
 
-## Fase 6 — Frontend (React + Vite, skill frontend-design)
+## Fase 6 — Frontend (React + Vite, skill frontend-design) ✅
 
-- [ ] Partidas, detalhe c/ mercados (modelo vs mercado), sinais, banca
-      (curva de CLV com destaque ≥ equity), backtests
+- [x] Design system próprio (tokens verde-noturno, dourado = sharp/closing,
+      verde/vermelho semânticos com rótulo, Saira/Inter/Plex Mono)
+- [x] Assinatura: régua de probabilidade (fair vs decisão) nos sinais
+- [x] Páginas: Partidas, Detalhe (modelo vs mercado), Sinais (com registro
+      paper + aviso ADR-0007), Banca (CLV acumulado acima da equity),
+      Backtests (CLV primeiro + curva simulada)
+- [x] Estados completos (loading/empty/error), disclaimer permanente
+- [ ] Testes de componente (Vitest + Testing Library) — pendente
 
 ## Fase 7 — Props e combinadas (só após CLV positivo comprovado)
 
