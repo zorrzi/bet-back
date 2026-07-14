@@ -73,6 +73,17 @@ class Settings(BaseSettings):
     max_stake_pct: float = 0.02
     devig_method: str = "multiplicative"  # multiplicative | shin | power
 
+    # --- modeling (Phase 2) ---
+    # temporal decay per day for the Dixon-Coles likelihood
+    # (0.0019/day ~= one-year half-life)
+    dc_xi: float = 0.0019
+    dc_max_goals: int = 10
+    # only train on matches this recent: beyond ~4 years the decay weight is
+    # ~0.06 anyway, and dropping defunct teams shrinks the parameter space
+    dc_training_window_days: int = 1460
+    # historical results + Pinnacle closing 1X2 (ADR-0005)
+    fdcuk_csv_url: str = "https://www.football-data.co.uk/new/BRA.csv"
+
     @field_validator("database_url")
     @classmethod
     def _normalize_database_url(cls, value: str) -> str:

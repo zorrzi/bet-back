@@ -33,7 +33,7 @@ packages = ["src"]
 exclude = ["alembic/", "tests/"]
 
 [[tool.mypy.overrides]]
-module = ["apscheduler.*", "slowapi.*"]
+module = ["apscheduler.*", "slowapi.*", "scipy.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
