@@ -70,15 +70,28 @@ class BankrollHistory(Base):
     )
 
 
+class BacktestStatus:
+    RUNNING = "running"
+    FINISHED = "finished"
+    FAILED = "failed"
+
+
 class BacktestRun(Base):
     __tablename__ = "backtest_runs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(
+        Text, default=BacktestStatus.RUNNING, server_default="finished"
+    )
     model_version: Mapped[str] = mapped_column(Text)
     # kelly_fraction, min_edge, leagues, de-vig method, ...
     params: Mapped[dict[str, Any]] = mapped_column(
         JSON().with_variant(postgresql.JSONB(), "postgresql")
+    )
+    # per-bet records + equity curve of the finished run (capped)
+    detail: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON().with_variant(postgresql.JSONB(), "postgresql"), nullable=True
     )
     date_from: Mapped[date] = mapped_column(Date)
     date_to: Mapped[date] = mapped_column(Date)

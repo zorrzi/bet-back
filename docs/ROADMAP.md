@@ -64,11 +64,21 @@ de aprovação entre fases.
 - Quarter lines (2.25/2.75): fora das previsões; precificação por
   decomposição fica como melhoria futura da Fase 3
 
-## Fase 4 — Backtest com CLV
+## Fase 4 — Backtest com CLV ✅ (engine) / veredito: modelo v1 refutado
 
-- [ ] Loop cronológico sem informação do futuro
-- [ ] Calibração vs validação out-of-sample
-- [ ] Métricas: avg_clv, pct_positive_clv (principais), ROI, P&L, drawdown
+- [x] Loop cronológico sem informação do futuro (refit mensal com
+      warm-start, cutoff = kickoff)
+- [x] Out-of-sample por construção; janela avaliada nunca treina o próprio
+      modelo
+- [x] Métricas CLV-first + ROI, P&L, drawdown, Sharpe; rotas POST/GET
+      /backtests (assíncrono, status running/finished/failed)
+- [x] **Run real (id=1)**: 737 apostas 2024–2026 → ROI −22,7%, Sharpe −3,0.
+      `dixoncoles_v1` NÃO bate a closing line (ADR-0006). Nenhuma aposta
+      com este modelo; o feed de sinais atual é inválido até o v2.
+- [ ] `dixoncoles_v2`: calibração/shrinkage p/ mercado
+      (w·modelo + (1−w)·fair), re-validar neste mesmo harness
+- Nota: CLV estrutural = 0 neste corpus (só closing odds); CLV real será
+  medido no paper trading com as capturas ao vivo (ADR-0006)
 
 ## Fase 5 — Paper trading (forward test)
 

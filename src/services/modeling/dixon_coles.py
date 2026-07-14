@@ -128,6 +128,7 @@ def fit_dixon_coles(
     *,
     cutoff: datetime,
     xi: float,
+    warm_start: DixonColesModel | None = None,
 ) -> DixonColesModel:
     cutoff = _as_utc(cutoff)
     usable = [m for m in matches if _as_utc(m.kickoff_utc) < cutoff]
@@ -209,6 +210,15 @@ def fit_dixon_coles(
 
     initial = np.zeros(2 * n + 1)
     initial[-2] = 0.25  # typical home advantage
+    if warm_start is not None:
+        # sequential refits (backtest loop) converge in far fewer iterations
+        # when seeded from the previous window's parameters
+        attack0 = np.array([warm_start.attack.get(t, 0.0) for t in team_ids])
+        attack0 -= attack0.mean()  # respect the sum-zero constraint
+        initial[: n - 1] = attack0[: n - 1]
+        initial[n - 1 : 2 * n - 1] = [warm_start.defense.get(t, 0.0) for t in team_ids]
+        initial[-2] = warm_start.home_advantage
+        initial[-1] = min(max(warm_start.rho, _RHO_BOUNDS[0]), _RHO_BOUNDS[1])
     bounds: list[tuple[float | None, float | None]] = [(None, None)] * (2 * n - 1)
     bounds += [(None, None), _RHO_BOUNDS]
 

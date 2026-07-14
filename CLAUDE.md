@@ -128,7 +128,13 @@ Tudo precisa estar verde antes de commit (CI roda os quatro + pip-audit).
   melhor odd, expira candidatos ao regenerar), apostas paper + settle com
   CLV em `bet_service.py`, banca em ledger append-only. 12 sinais reais
   gerados na validação.
-- Próximo: Fase 4 — backtest cronológico com CLV como métrica principal,
-  usando os 15.825 closings históricos da Pinnacle.
-- Fases 4–7: ver `docs/ROADMAP.md`. Decisões em `docs/decisions/` (ADRs);
+- **Fase 4 (backtest): engine CONCLUÍDA e veredito emitido** —
+  `backtest_service.py` (cronológico, refit mensal warm-start, sem
+  informação do futuro, rotas /backtests assíncronas). **Run real:
+  dixoncoles_v1 REFUTADO** (737 apostas OOS 2024–2026, ROI −22,7%,
+  Sharpe −3,0; seleção adversa nos maiores "edges"). NENHUMA aposta (nem
+  paper) com v1; feed de value_bets atual é inválido (ADR-0006).
+- Próximo: `dixoncoles_v2` com calibração/shrinkage p/ mercado
+  (w·modelo + (1−w)·fair), re-validado no mesmo harness; só então Fase 5.
+- Fases 5–7: ver `docs/ROADMAP.md`. Decisões em `docs/decisions/` (ADRs);
   schema em `docs/DATA_MODEL.md`; glossário/fórmulas em `docs/DOMAIN.md`.

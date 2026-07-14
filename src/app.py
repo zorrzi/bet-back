@@ -20,7 +20,7 @@ from src.config.logging_config import setup_logging
 from src.config.rate_limit import limiter
 from src.config.settings import get_settings
 from src.jobs.scheduler import build_scheduler
-from src.routers import betting, health, jobs, matches
+from src.routers import backtests, betting, health, jobs, matches
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +93,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(matches.router)
     app.include_router(betting.router)
+    app.include_router(backtests.router)
     app.include_router(jobs.router)
     return app
 
