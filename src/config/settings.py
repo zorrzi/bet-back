@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     kelly_multiplier: float = 0.25
     max_stake_pct: float = 0.02
     devig_method: str = "multiplicative"  # multiplicative | shin | power
+    initial_bankroll: float = 1000.0  # paper bankroll seeded on first use
 
     # --- modeling (Phase 2) ---
     # temporal decay per day for the Dixon-Coles likelihood

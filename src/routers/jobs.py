@@ -4,6 +4,8 @@ All of them mutate state, so they sit behind the API key (spec §11.1).
 Provider failures surface as 502 (upstream), not opaque 500s.
 """
 
+from decimal import Decimal
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -15,6 +17,7 @@ from src.providers.api_football import ApiFootballProvider
 from src.providers.football_data_co_uk import FootballDataCoUkProvider
 from src.providers.http import ProviderError
 from src.providers.the_odds_api import TheOddsApiProvider
+from src.schemas.betting import SettlementOut, SignalGenerationOut
 from src.schemas.jobs import (
     ClosingMarkOut,
     FixtureIngestionOut,
@@ -23,6 +26,7 @@ from src.schemas.jobs import (
     ResultsIngestionOut,
 )
 from src.schemas.predictions import PredictionRunOut
+from src.services.bet_service import BetService, SettlementResult
 from src.services.closing_service import ClosingService
 from src.services.fixture_ingestion_service import (
     FixtureIngestionResult,
@@ -36,6 +40,7 @@ from src.services.results_ingestion_service import (
     ResultsIngestionResult,
     ResultsIngestionService,
 )
+from src.services.value_bet_service import SignalGenerationResult, ValueBetService
 
 router = APIRouter(prefix="/jobs", tags=["jobs"], dependencies=[Depends(require_api_key)])
 
@@ -107,6 +112,31 @@ def import_history(
         return service.import_history(settings.fdcuk_csv_url)
     except _UPSTREAM_ERRORS as exc:
         raise HTTPException(status_code=502, detail="History provider error.") from exc
+
+
+@router.post("/generate-signals", response_model=SignalGenerationOut)
+def generate_signals(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> SignalGenerationResult:
+    service = ValueBetService(
+        db,
+        min_edge=settings.min_edge,
+        kelly_multiplier=settings.kelly_multiplier,
+        max_stake_pct=settings.max_stake_pct,
+        devig_method=settings.devig_method,
+        initial_bankroll=Decimal(str(settings.initial_bankroll)),
+    )
+    return service.generate_signals()
+
+
+@router.post("/settle", response_model=SettlementOut)
+def settle(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> SettlementResult:
+    service = BetService(db, initial_bankroll=Decimal(str(settings.initial_bankroll)))
+    return service.settle_finished()
 
 
 @router.post("/predict-upcoming", response_model=PredictionRunOut)

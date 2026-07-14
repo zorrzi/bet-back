@@ -7,6 +7,7 @@ session (always closed) and never lets an exception kill the scheduler.
 
 import logging
 from collections.abc import Callable
+from decimal import Decimal
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import Session
@@ -15,10 +16,12 @@ from src.config.settings import Settings
 from src.database.database import get_session_factory
 from src.providers.api_football import ApiFootballProvider
 from src.providers.the_odds_api import TheOddsApiProvider
+from src.services.bet_service import BetService
 from src.services.closing_service import ClosingService
 from src.services.fixture_ingestion_service import FixtureIngestionService
 from src.services.odds_ingestion_service import OddsIngestionService
 from src.services.results_ingestion_service import ResultsIngestionService
+from src.services.value_bet_service import ValueBetService
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +79,29 @@ def _mark_closing(settings: Settings) -> None:
     )
 
 
+def _generate_signals(settings: Settings) -> None:
+    _run_job(
+        "generate_signals",
+        lambda session: ValueBetService(
+            session,
+            min_edge=settings.min_edge,
+            kelly_multiplier=settings.kelly_multiplier,
+            max_stake_pct=settings.max_stake_pct,
+            devig_method=settings.devig_method,
+            initial_bankroll=Decimal(str(settings.initial_bankroll)),
+        ).generate_signals(),
+    )
+
+
+def _settle(settings: Settings) -> None:
+    _run_job(
+        "settle",
+        lambda session: BetService(
+            session, initial_bankroll=Decimal(str(settings.initial_bankroll))
+        ).settle_finished(),
+    )
+
+
 def build_scheduler(settings: Settings) -> BackgroundScheduler:
     scheduler = BackgroundScheduler(timezone="UTC")
     if not settings.odds_autocreate_matches:
@@ -109,5 +135,19 @@ def build_scheduler(settings: Settings) -> BackgroundScheduler:
         minutes=settings.closing_poll_minutes,
         args=[settings],
         id="mark_closing",
+    )
+    scheduler.add_job(
+        _generate_signals,
+        "interval",
+        minutes=settings.odds_poll_minutes,  # refresh signals at odds cadence
+        args=[settings],
+        id="generate_signals",
+    )
+    scheduler.add_job(
+        _settle,
+        "interval",
+        minutes=settings.settle_poll_minutes,
+        args=[settings],
+        id="settle",
     )
     return scheduler
