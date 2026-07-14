@@ -48,11 +48,21 @@ de aprovação entre fases.
   mandantes (+10–30% de "edge" aparente). Isso é o esperado ANTES do
   backtest — o CLV das Fases 4–5 é quem diz se há edge real.
 
-## Fase 3 — Sinais de valor + staking
+## Fase 3 — Sinais de valor + staking ✅
 
-- [ ] Geração de `value_bets` (edge > min_edge)
-- [ ] Kelly fracionário + max_stake_pct
-- [ ] Rotas /value-bets, POST /bets (placed_at < kickoff), /bankroll
+- [x] Staking puro (`src/services/staking.py`): edge com push, Kelly
+      fracionário, teto por aposta — testes calculados à mão
+- [x] Geração de `value_bets` (`src/services/value_bet_service.py`):
+      fair prob de-vigada da linha sharp, melhor odd entre as casas,
+      edge > min_edge E Kelly > 0; regeneração expira candidatos antigos
+- [x] Apostas paper: POST /bets valida placed_at < kickoff e debita a
+      banca; settle resolve win/loss/push, calcula P&L e CLV
+      (closing da mesma seleção, mesma casa → fallback sharp)
+- [x] Rotas: GET /value-bets, POST/GET /bets, GET /bankroll,
+      POST /jobs/generate-signals, POST /jobs/settle + jobs no scheduler
+- [x] Validação real: 12 sinais candidatos gerados sobre os 13 jogos
+- Quarter lines (2.25/2.75): fora das previsões; precificação por
+  decomposição fica como melhoria futura da Fase 3
 
 ## Fase 4 — Backtest com CLV
 

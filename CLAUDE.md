@@ -122,7 +122,13 @@ Tudo precisa estar verde antes de commit (CI roda os quatro + pip-audit).
   (ADR-0005); aliases canônicos de times entre provedores em
   `src/utils/text.py::canonical_team_key` (usar SEMPRE para matching).
   13/13 jogos previstos na validação real.
-- Próximo: Fase 3 (value_bets + Kelly fracionário) → Fase 4 (backtest com
-  CLV usando os closings históricos).
-- Fases 3–7: ver `docs/ROADMAP.md`. Decisões em `docs/decisions/` (ADRs);
+- **Fase 3 (sinais + staking): CONCLUÍDA** — staking puro em
+  `src/services/staking.py` (edge push-aware, Kelly fracionário, teto),
+  geração de sinais em `value_bet_service.py` (fair sharp de-vigada,
+  melhor odd, expira candidatos ao regenerar), apostas paper + settle com
+  CLV em `bet_service.py`, banca em ledger append-only. 12 sinais reais
+  gerados na validação.
+- Próximo: Fase 4 — backtest cronológico com CLV como métrica principal,
+  usando os 15.825 closings históricos da Pinnacle.
+- Fases 4–7: ver `docs/ROADMAP.md`. Decisões em `docs/decisions/` (ADRs);
   schema em `docs/DATA_MODEL.md`; glossário/fórmulas em `docs/DOMAIN.md`.
