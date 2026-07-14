@@ -84,6 +84,9 @@ class BacktestParams:
     refit_days: int
     xi: float
     training_window_days: int
+    # market shrinkage: decision prob = w*model + (1-w)*fair. w=1 is the
+    # raw model; lower w concedes information to the market (ADR-0007).
+    blend_weight: float = 1.0
 
     def as_json(self) -> dict[str, Any]:
         return {
@@ -97,6 +100,7 @@ class BacktestParams:
             "refit_days": self.refit_days,
             "xi": self.xi,
             "training_window_days": self.training_window_days,
+            "blend_weight": self.blend_weight,
             "markets": ["1X2"],
         }
 
@@ -126,6 +130,10 @@ class _State:
     total_staked: float = 0.0
     bets: list[_SimBet] = field(default_factory=list)
     equity: list[float] = field(default_factory=list)
+    # calibration diagnostics over ALL evaluated matches (not only bets):
+    # log-loss of the blended 1X2 distribution on the actual outcome
+    log_loss_sum: float = 0.0
+    log_loss_n: int = 0
 
 
 class BacktestService:
@@ -204,9 +212,7 @@ class BacktestService:
         state: _State,
     ) -> None:
         matrix = model.score_matrix(match.home_team_id, match.away_team_id)
-        model_probs = dict(
-            zip(("HOME", "DRAW", "AWAY"), match_result_probs(matrix), strict=True)
-        )
+        raw_probs = dict(zip(("HOME", "DRAW", "AWAY"), match_result_probs(matrix), strict=True))
         odds = [float(trio["HOME"]), float(trio["DRAW"]), float(trio["AWAY"])]
         try:
             fair = dict(
@@ -215,6 +221,18 @@ class BacktestService:
         except ValueError:
             return
         assert match.home_goals is not None and match.away_goals is not None
+
+        w = params.blend_weight
+        model_probs = {sel: w * raw_probs[sel] + (1.0 - w) * fair[sel] for sel in raw_probs}
+        outcome = (
+            "HOME"
+            if match.home_goals > match.away_goals
+            else "AWAY"
+            if match.away_goals > match.home_goals
+            else "DRAW"
+        )
+        state.log_loss_sum += -math.log(max(model_probs[outcome], 1e-12))
+        state.log_loss_n += 1
 
         for selection in ("HOME", "DRAW", "AWAY"):
             price = float(trio[selection])
@@ -284,6 +302,12 @@ class BacktestService:
             "total_staked": round(state.total_staked, 2),
             "skipped_no_odds": skipped_no_odds,
             "skipped_unknown_teams": skipped_unknown_teams,
+            # proper scoring rule over ALL evaluated matches — the metric
+            # used to calibrate blend_weight without peeking at ROI
+            "avg_log_loss": (
+                round(state.log_loss_sum / state.log_loss_n, 6) if state.log_loss_n else None
+            ),
+            "evaluated_matches": state.log_loss_n,
             "clv_note": (
                 "bets simulated AT the closing price (historical corpus has "
                 "closing odds only) -> CLV structurally 0; see ADR-0006"

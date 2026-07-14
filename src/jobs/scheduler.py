@@ -89,6 +89,7 @@ def _generate_signals(settings: Settings) -> None:
             max_stake_pct=settings.max_stake_pct,
             devig_method=settings.devig_method,
             initial_bankroll=Decimal(str(settings.initial_bankroll)),
+            blend_weight=settings.model_blend_weight,
         ).generate_signals(),
     )
 

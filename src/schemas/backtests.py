@@ -17,6 +17,8 @@ class BacktestCreateIn(BaseModel):
     devig_method: str | None = None
     initial_bankroll: float | None = Field(default=None, gt=0)
     refit_days: int = Field(default=30, ge=1, le=365)
+    # market shrinkage weight: 1.0 = raw model (v1), lower = closer to market
+    blend_weight: float | None = Field(default=None, ge=0, le=1)
     # run in-request instead of in a background thread (tests / small ranges)
     synchronous: bool = False
 

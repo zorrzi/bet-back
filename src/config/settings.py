@@ -73,6 +73,12 @@ class Settings(BaseSettings):
     max_stake_pct: float = 0.02
     devig_method: str = "multiplicative"  # multiplicative | shin | power
     initial_bankroll: float = 1000.0  # paper bankroll seeded on first use
+    # v2 market shrinkage: p_final = w*model + (1-w)*fair (ADR-0007).
+    # Calibrated 2026-07-13 on 2022-2023 log-loss: pure market (w=0) won;
+    # w=0.1 is statistically indistinguishable and keeps a minimal model
+    # voice. Live signals are therefore dominated by line-shopping (best
+    # soft price vs sharp fair) — paper-trading CLV is the arbiter.
+    model_blend_weight: float = 0.1
 
     # --- modeling (Phase 2) ---
     # temporal decay per day for the Dixon-Coles likelihood

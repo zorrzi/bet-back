@@ -57,12 +57,14 @@ class ValueBetService:
         max_stake_pct: float,
         devig_method: str,
         initial_bankroll: Decimal,
+        blend_weight: float = 1.0,
     ) -> None:
         self._session = session
         self._min_edge = min_edge
         self._kelly_multiplier = kelly_multiplier
         self._max_stake_pct = max_stake_pct
         self._devig_method = devig_method
+        self._blend_weight = blend_weight
         self._value_bets = ValueBetRepository(session)
         self._bankroll = BankrollRepository(session, initial_bankroll)
 
@@ -147,7 +149,10 @@ class ValueBetService:
             if not offers or selection not in fair:
                 continue
             best_bookmaker_id, best = max(offers, key=lambda o: o[1].price_decimal)
-            p_model = float(prediction.model_prob)
+            # v2 market shrinkage (ADR-0007): decision prob concedes
+            # information to the sharp fair prob
+            w = self._blend_weight
+            p_model = w * float(prediction.model_prob) + (1.0 - w) * fair[selection]
             odds = float(best.price_decimal)
             edge_value = edge_of(p_model, odds, p_push)
             fraction = kelly_fraction(p_model, odds, p_push)
@@ -161,6 +166,11 @@ class ValueBetService:
                 max_stake_pct=self._max_stake_pct,
                 p_push=p_push,
             )
+            version = (
+                prediction.model_version
+                if w >= 1.0
+                else f"{prediction.model_version}+blend{w:g}"
+            )
             self._value_bets.add(
                 ValueBet(
                     match_id=match.id,
@@ -168,13 +178,13 @@ class ValueBetService:
                     bookmaker_id=best_bookmaker_id,
                     selection=selection,
                     line=prediction.line,
-                    model_prob=prediction.model_prob,
+                    model_prob=Decimal(f"{p_model:.6f}"),  # the DECISION prob
                     fair_prob=Decimal(f"{fair[selection]:.6f}"),
                     offered_odds=best.price_decimal,
                     edge=Decimal(f"{edge_value:.6f}"),
                     kelly_fraction=Decimal(f"{fraction:.6f}"),
                     suggested_stake=Decimal(f"{stake:.2f}"),
-                    model_version=prediction.model_version,
+                    model_version=version,
                     status=ValueBetStatus.CANDIDATE,
                 )
             )

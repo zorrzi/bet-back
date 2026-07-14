@@ -149,6 +149,22 @@ def test_backtest_with_impossible_min_edge_places_no_bets(session: Session) -> N
     assert run.total_pnl == Decimal("0.00")
 
 
+def test_blend_weight_zero_is_pure_market_and_never_bets(session: Session) -> None:
+    """w=0 collapses the decision prob onto the de-vigged market; fair*odds
+    is always < 1 (the vig), so NO bet can ever clear min_edge. This anchors
+    the blend semantics: betting volume must vanish as w -> 0."""
+    _seed_corpus(session)
+    service = BacktestService(session)
+    params = _params(blend_weight=0.0)
+    run = service.create_run(params, "dixoncoles_v1+blend0")
+    run = service.execute(run.id, params)
+
+    assert run.status == BacktestStatus.FINISHED
+    assert run.n_bets == 0
+    assert run.detail is not None
+    assert run.detail["avg_log_loss"] is not None  # calibration still measured
+
+
 def test_backtest_failure_is_recorded_not_raised(session: Session) -> None:
     # empty database -> the model can never fit; run must fail gracefully
     service = BacktestService(session)

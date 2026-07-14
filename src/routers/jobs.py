@@ -126,6 +126,7 @@ def generate_signals(
         max_stake_pct=settings.max_stake_pct,
         devig_method=settings.devig_method,
         initial_bankroll=Decimal(str(settings.initial_bankroll)),
+        blend_weight=settings.model_blend_weight,
     )
     return service.generate_signals()
 

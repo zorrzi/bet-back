@@ -35,6 +35,9 @@ def _params_from(body: BacktestCreateIn, settings: Settings) -> BacktestParams:
         refit_days=body.refit_days,
         xi=settings.dc_xi,
         training_window_days=settings.dc_training_window_days,
+        blend_weight=(
+            body.blend_weight if body.blend_weight is not None else settings.model_blend_weight
+        ),
     )
 
 
@@ -61,7 +64,12 @@ def create_backtest(
         raise HTTPException(status_code=422, detail="date_from must precede date_to.")
     params = _params_from(body, settings)
     service = BacktestService(db)
-    run = service.create_run(params, MODEL_VERSION)
+    version = (
+        MODEL_VERSION
+        if params.blend_weight >= 1.0
+        else f"{MODEL_VERSION}+blend{params.blend_weight:g}"
+    )
+    run = service.create_run(params, version)
     if body.synchronous:
         return service.execute(run.id, params)
     thread = threading.Thread(
