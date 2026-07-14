@@ -21,14 +21,9 @@ from src.config.settings import Settings
 from src.models.odds import MarketCategory
 from src.providers.base import EventOdds, OddsQuote, ScoreData
 from src.providers.http import get_json
+from src.utils.text import format_market_line as format_line
 
 logger = logging.getLogger(__name__)
-
-
-def format_line(line: Decimal) -> str:
-    """2.5 -> '2_5'; -0.5 -> '-0_5' (market codes per spec §4.2)."""
-    text = format(line.normalize(), "f")
-    return text.replace(".", "_")
 
 
 class TheOddsApiProvider:

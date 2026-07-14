@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from src.models.match import Match, MatchStatus
 from src.models.odds import OddsSnapshot
-from src.utils.text import normalize_team_name
+from src.utils.text import canonical_team_key
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -110,13 +110,13 @@ class MatchRepository:
         """Resolve an odds-provider event onto a match: exact kickoff, then
         accent-insensitive normalized team-name comparison. Conservative on
         purpose — an unmatched event is logged and skipped, never guessed."""
-        wanted_home = normalize_team_name(home_team_name)
-        wanted_away = normalize_team_name(away_team_name)
+        wanted_home = canonical_team_key(home_team_name)
+        wanted_away = canonical_team_key(away_team_name)
         matches = self._session.scalars(select(Match).where(Match.kickoff_utc == kickoff_utc))
         for match in matches:  # teams come along via joined-eager relationships
             if (
-                normalize_team_name(match.home_team.name) == wanted_home
-                and normalize_team_name(match.away_team.name) == wanted_away
+                canonical_team_key(match.home_team.name) == wanted_home
+                and canonical_team_key(match.away_team.name) == wanted_away
             ):
                 return match
         return None

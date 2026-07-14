@@ -19,7 +19,7 @@ from src.providers.base import EventOdds, OddsProvider, OddsQuote
 from src.repositories.competition_repository import CompetitionRepository
 from src.repositories.match_repository import MatchRepository
 from src.repositories.odds_repository import OddsRepository
-from src.utils.text import normalize_team_name
+from src.utils.text import canonical_team_key
 
 logger = logging.getLogger(__name__)
 
@@ -149,12 +149,12 @@ class OddsIngestionService:
             country=None,
         )
         home = self._competitions.upsert_team(
-            f"toa:{normalize_team_name(event.home_team_name)}",
+            f"toa:{canonical_team_key(event.home_team_name)}",
             event.home_team_name,
             league.id,
         )
         away = self._competitions.upsert_team(
-            f"toa:{normalize_team_name(event.away_team_name)}",
+            f"toa:{canonical_team_key(event.away_team_name)}",
             event.away_team_name,
             league.id,
         )
