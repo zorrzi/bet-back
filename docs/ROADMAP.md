@@ -30,14 +30,23 @@ de aprovação entre fases.
 - [ ] (deferido p/ quando necessário) ingestão de players/lineups/stats
       detalhados — schema pronto, ingestão entra antes da Fase 7
 
-## Fase 2 — Motor de modelagem
+## Fase 2 — Motor de modelagem ✅
 
-- [ ] De-vig multiplicativo (+ Shin/power configuráveis) sobre linha sharp
-- [ ] Dixon-Coles (ataque/defesa/casa, correção de placares baixos,
-      decaimento temporal) via scipy
-- [ ] `model_predictions` versionadas; rotas predict
-- [ ] Histórico p/ calibração: CSVs football-data.co.uk (closing Pinnacle
-      grátis — ver ADR-0002)
+- [x] De-vig multiplicativo + Shin + power (`src/services/devig.py`),
+      testes calculados à mão
+- [x] Dixon-Coles com decaimento temporal, correção de placares baixos e
+      janela de treino de 4 anos (`src/services/modeling/dixon_coles.py`)
+- [x] `model_predictions` versionadas (`dixoncoles_v1`); rotas
+      POST /matches/{id}/predict, GET /matches/{id}/predictions,
+      POST /jobs/predict-upcoming
+- [x] Histórico importado: 5.496 partidas 2012–2026 + 15.825 closings da
+      Pinnacle via football-data.co.uk (ADR-0005), aliases de times entre
+      provedores
+- [x] Validação real: 13/13 jogos futuros previstos; sanidade dos
+      parâmetros conferida (mando 1.44x, ataques top = Fla/Palmeiras/Botafogo)
+- Observação honesta: o modelo diverge bastante da Pinnacle em alguns
+  mandantes (+10–30% de "edge" aparente). Isso é o esperado ANTES do
+  backtest — o CLV das Fases 4–5 é quem diz se há edge real.
 
 ## Fase 3 — Sinais de valor + staking
 

@@ -115,7 +115,14 @@ Tudo precisa estar verde antes de commit (CI roda os quatro + pip-audit).
   corrente vêm da The Odds API (autocreate de matches a partir de eventos de
   odds + job `/jobs/ingest/scores`). API-Football fica para histórico
   2022–2024 (calibração Fase 2).
-- Próximo: ligar scheduler local p/ acumular histórico → Fase 2 (de-vig +
-  Dixon-Coles).
-- Fases 2–7: ver `docs/ROADMAP.md`. Decisões em `docs/decisions/` (ADRs);
+- **Fase 2 (motor de modelagem): CONCLUÍDA** — de-vig (mult/Shin/power) em
+  `src/services/devig.py`; Dixon-Coles (`dixoncoles_v1`) com decaimento
+  temporal e janela de 4 anos em `src/services/modeling/`; histórico
+  2012–2026 importado do football-data.co.uk com closings da Pinnacle
+  (ADR-0005); aliases canônicos de times entre provedores em
+  `src/utils/text.py::canonical_team_key` (usar SEMPRE para matching).
+  13/13 jogos previstos na validação real.
+- Próximo: Fase 3 (value_bets + Kelly fracionário) → Fase 4 (backtest com
+  CLV usando os closings históricos).
+- Fases 3–7: ver `docs/ROADMAP.md`. Decisões em `docs/decisions/` (ADRs);
   schema em `docs/DATA_MODEL.md`; glossário/fórmulas em `docs/DOMAIN.md`.
