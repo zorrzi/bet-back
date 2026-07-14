@@ -40,6 +40,7 @@ class MarketCategory:
     MATCH_RESULT = "match_result"
     TOTALS = "totals"
     HANDICAP = "handicap"
+    BTTS = "btts"
     PLAYER_PROP = "player_prop"
 
 

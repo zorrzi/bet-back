@@ -1,15 +1,18 @@
-"""Read routes for matches and their odds history (spec §8)."""
+"""Match routes: listing, odds history and model predictions (spec §8)."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.config.security import require_api_key
+from src.config.settings import Settings, get_settings
 from src.database.database import get_db
 from src.models.odds import Bookmaker, Market
 from src.repositories.match_repository import MatchRepository
 from src.repositories.odds_repository import OddsRepository
+from src.repositories.prediction_repository import PredictionRepository
 from src.schemas.matches import (
     BookmakerOut,
     MarketOut,
@@ -18,6 +21,9 @@ from src.schemas.matches import (
     OddsSnapshotOut,
     PaginatedMatches,
 )
+from src.schemas.predictions import MatchPredictionsOut, PredictionOut
+from src.services.modeling.dixon_coles import NotEnoughDataError
+from src.services.prediction_service import PredictionService, UnknownTeamsError
 
 router = APIRouter(prefix="/matches", tags=["matches"])
 
@@ -51,6 +57,65 @@ def get_match(match_id: int, db: Session = Depends(get_db)) -> MatchOut:
     if match is None:
         raise HTTPException(status_code=404, detail="Match not found.")
     return MatchOut.model_validate(match)
+
+
+def _predictions_out(db: Session, match_id: int) -> MatchPredictionsOut:
+    rows = PredictionRepository(db).list_for_match(match_id)
+    market_ids = {r.market_id for r in rows}
+    codes = {m.id: m.code for m in db.scalars(select(Market).where(Market.id.in_(market_ids)))}
+    return MatchPredictionsOut(
+        match_id=match_id,
+        predictions=[
+            PredictionOut(
+                id=r.id,
+                market_id=r.market_id,
+                market_code=codes.get(r.market_id, "?"),
+                selection=r.selection,
+                line=r.line,
+                model_prob=r.model_prob,
+                model_version=r.model_version,
+                created_at=r.created_at,
+            )
+            for r in rows
+        ],
+    )
+
+
+@router.post(
+    "/{match_id}/predict",
+    response_model=MatchPredictionsOut,
+    dependencies=[Depends(require_api_key)],
+)
+def predict_match(
+    match_id: int,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> MatchPredictionsOut:
+    match = MatchRepository(db).get(match_id)
+    if match is None:
+        raise HTTPException(status_code=404, detail="Match not found.")
+    service = PredictionService(
+        db,
+        xi=settings.dc_xi,
+        max_goals=settings.dc_max_goals,
+        training_window_days=settings.dc_training_window_days,
+    )
+    try:
+        model = service.fit(datetime.now(UTC))
+        service.predict_match(match, model)
+    except NotEnoughDataError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except UnknownTeamsError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    db.commit()
+    return _predictions_out(db, match_id)
+
+
+@router.get("/{match_id}/predictions", response_model=MatchPredictionsOut)
+def get_match_predictions(match_id: int, db: Session = Depends(get_db)) -> MatchPredictionsOut:
+    if MatchRepository(db).get(match_id) is None:
+        raise HTTPException(status_code=404, detail="Match not found.")
+    return _predictions_out(db, match_id)
 
 
 @router.get("/{match_id}/odds", response_model=MatchOddsOut)

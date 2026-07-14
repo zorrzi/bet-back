@@ -12,20 +12,26 @@ from src.config.security import require_api_key
 from src.config.settings import Settings, get_settings
 from src.database.database import get_db
 from src.providers.api_football import ApiFootballProvider
+from src.providers.football_data_co_uk import FootballDataCoUkProvider
 from src.providers.http import ProviderError
 from src.providers.the_odds_api import TheOddsApiProvider
 from src.schemas.jobs import (
     ClosingMarkOut,
     FixtureIngestionOut,
+    HistoryImportOut,
     OddsIngestionOut,
     ResultsIngestionOut,
 )
+from src.schemas.predictions import PredictionRunOut
 from src.services.closing_service import ClosingService
 from src.services.fixture_ingestion_service import (
     FixtureIngestionResult,
     FixtureIngestionService,
 )
+from src.services.history_import_service import HistoryImportResult, HistoryImportService
+from src.services.modeling.dixon_coles import NotEnoughDataError
 from src.services.odds_ingestion_service import OddsIngestionResult, OddsIngestionService
+from src.services.prediction_service import PredictionRunResult, PredictionService
 from src.services.results_ingestion_service import (
     ResultsIngestionResult,
     ResultsIngestionService,
@@ -89,3 +95,32 @@ def mark_closing(
 ) -> ClosingMarkOut:
     result = ClosingService(db, settings.closing_lookback_days).mark_closing_lines()
     return ClosingMarkOut.model_validate(result)
+
+
+@router.post("/import/history", response_model=HistoryImportOut)
+def import_history(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> HistoryImportResult:
+    service = HistoryImportService(db, FootballDataCoUkProvider())
+    try:
+        return service.import_history(settings.fdcuk_csv_url)
+    except _UPSTREAM_ERRORS as exc:
+        raise HTTPException(status_code=502, detail="History provider error.") from exc
+
+
+@router.post("/predict-upcoming", response_model=PredictionRunOut)
+def predict_upcoming(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> PredictionRunResult:
+    service = PredictionService(
+        db,
+        xi=settings.dc_xi,
+        max_goals=settings.dc_max_goals,
+        training_window_days=settings.dc_training_window_days,
+    )
+    try:
+        return service.predict_upcoming()
+    except NotEnoughDataError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc

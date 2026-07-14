@@ -38,3 +38,12 @@ class ClosingMarkOut(BaseModel):
 
     matches_processed: int
     snapshots_marked: int
+
+
+class HistoryImportOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    rows_seen: int
+    matches_created: int
+    results_updated: int
+    snapshots_inserted: int
